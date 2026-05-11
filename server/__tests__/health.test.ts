@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getConfig, listMissingConfig } from "../config.js";
+import { runHealthCheck } from "../health.js";
 
 describe("config", () => {
   it("uses the OpenAI base URL default", () => {
@@ -45,5 +46,42 @@ describe("config", () => {
     });
 
     expect(config.openaiBaseUrl).toBe("https://example.test/v1");
+  });
+});
+
+describe("runHealthCheck", () => {
+  it("reports missing config without making network checks", async () => {
+    const chat = vi.fn();
+    const searchWeb = vi.fn();
+
+    const report = await runHealthCheck({
+      config: getConfig({}),
+      chat,
+      searchWeb
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.items.some((item) => item.name === "OPENAI_API_KEY" && !item.ok)).toBe(true);
+    expect(chat).not.toHaveBeenCalled();
+    expect(searchWeb).not.toHaveBeenCalled();
+  });
+
+  it("reports successful LLM and Tavily probes", async () => {
+    const report = await runHealthCheck({
+      config: getConfig({
+        OPENAI_API_KEY: "sk-test",
+        OPENAI_MODEL: "demo-model",
+        TAVILY_API_KEY: "tvly-test"
+      }),
+      chat: vi.fn().mockResolvedValue("ok"),
+      searchWeb: vi.fn().mockResolvedValue({
+        query: "agent demo health check",
+        resultCount: 1,
+        results: []
+      })
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.items.every((item) => item.ok)).toBe(true);
   });
 });
