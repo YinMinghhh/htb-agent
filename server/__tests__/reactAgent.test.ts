@@ -87,6 +87,7 @@ describe("runReactAgent", () => {
     const result = await runReactAgent("问题", { chat, searchWeb, maxSteps: 1 });
 
     expect(result.answer).toBe("");
+    expect(result.trace).toHaveLength(1);
     expect(searchWeb).not.toHaveBeenCalled();
     expect(result.trace.at(-1)).toMatchObject({
       label: "error",
@@ -94,7 +95,26 @@ describe("runReactAgent", () => {
       title: "模型输出无效",
       detail: "Agent could not parse a valid action or final answer."
     });
-    expect(result.trace.map((step) => step.detail).join("\n")).not.toContain(rawModelOutput);
+    expect(JSON.stringify(result.trace)).not.toContain(rawModelOutput);
+  });
+
+  it("returns a generic failed trace step when the model call rejects", async () => {
+    const sensitiveError = "SECRET_PROVIDER_TOKEN";
+    const chat = vi.fn().mockRejectedValue(new Error(`provider failed: ${sensitiveError}`));
+    const searchWeb = vi.fn();
+
+    const result = await runReactAgent("问题", { chat, searchWeb, maxSteps: 1 });
+
+    expect(result.answer).toBe("");
+    expect(searchWeb).not.toHaveBeenCalled();
+    expect(result.trace).toHaveLength(1);
+    expect(result.trace.at(-1)).toMatchObject({
+      label: "error",
+      status: "failed",
+      title: "模型调用失败",
+      detail: "Agent could not get a valid model response."
+    });
+    expect(JSON.stringify(result.trace)).not.toContain(sensitiveError);
   });
 
   it("marks the action failed and returns an error trace when search fails", async () => {

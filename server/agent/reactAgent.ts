@@ -45,7 +45,21 @@ export async function runReactAgent(
   const observations: SearchObservation[] = [];
 
   for (let stepIndex = 0; stepIndex < maxSteps; stepIndex += 1) {
-    const raw = await chat(buildMessages(question, observations));
+    let raw: string;
+    try {
+      raw = await chat(buildMessages(question, observations));
+    } catch {
+      trace.push(
+        makeTraceStep(
+          "error",
+          "failed",
+          "模型调用失败",
+          "Agent could not get a valid model response."
+        )
+      );
+      return { answer: "", trace };
+    }
+
     let step: AgentStep;
     try {
       step = parseAgentStep(raw);
