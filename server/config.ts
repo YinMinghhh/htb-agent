@@ -10,10 +10,10 @@ export interface AppConfig {
 
 export function getConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
-    openaiBaseUrl: trimTrailingSlash(env.OPENAI_BASE_URL || "https://api.openai.com/v1"),
-    openaiApiKey: env.OPENAI_API_KEY || "",
-    openaiModel: env.OPENAI_MODEL || "",
-    tavilyApiKey: env.TAVILY_API_KEY || "",
+    openaiBaseUrl: trimTrailingSlash(normalizeEnvValue(env.OPENAI_BASE_URL) || "https://api.openai.com/v1"),
+    openaiApiKey: normalizeEnvValue(env.OPENAI_API_KEY),
+    openaiModel: normalizeEnvValue(env.OPENAI_MODEL),
+    tavilyApiKey: normalizeEnvValue(env.TAVILY_API_KEY),
     port: Number(env.PORT || "8787")
   };
 }
@@ -29,4 +29,8 @@ export function listMissingConfig(config: AppConfig): string[] {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function normalizeEnvValue(value: string | undefined): string {
+  return value?.trim() || "";
 }
