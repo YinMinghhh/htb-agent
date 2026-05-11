@@ -36,7 +36,7 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
   });
 
   if (!response.ok) {
-    const text = redactErrorText(await response.text(), config.openaiApiKey);
+    const text = summarizeErrorText(await response.text(), config.openaiApiKey);
     throw new Error(`LLM request failed with ${response.status}: ${text}`);
   }
 
@@ -46,8 +46,18 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
   return answer;
 }
 
-function redactErrorText(text: string, apiKey: string): string {
-  const truncated = text.length > 500 ? `${text.slice(0, 500)}...` : text;
-  const withoutConfiguredKey = apiKey ? truncated.replaceAll(apiKey, "[redacted]") : truncated;
-  return withoutConfiguredKey.replace(/\bBearer\s+(?!Bearer\b)[A-Za-z0-9._-]+/g, "[redacted]");
+function summarizeErrorText(text: string, apiKey: string): string {
+  const withoutApiKey = apiKey ? text.replace(new RegExp(escapeRegExp(apiKey), "gi"), "[redacted]") : text;
+  const redacted = withoutApiKey.replace(
+    /\bbearer\s+(?!bearer\b)[A-Za-z0-9._-]+/gi,
+    "[redacted]"
+  );
+  const summary = redacted.trim();
+  const unsafe = /^\s*[\[{]|[{}"]|\b(message|messages|prompt|content|request|authorization|bearer|api key)\b/i;
+  if (!summary || summary.length > 120 || unsafe.test(summary)) return "upstream response body omitted";
+  return summary;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
