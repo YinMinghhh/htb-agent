@@ -1,4 +1,5 @@
 import { chat } from "../server/lib/llmClient.js";
+import { formatPublicError } from "../server/health.js";
 
 const question = process.argv.slice(2).join(" ").trim();
 if (!question) {
@@ -6,5 +7,10 @@ if (!question) {
   process.exit(1);
 }
 
-const answer = await chat([{ role: "user", content: question }]);
-console.log(answer);
+try {
+  const answer = await chat([{ role: "user", content: question }]);
+  console.log(answer);
+} catch (error) {
+  console.error(`Chat failed: ${formatPublicError(error)}`);
+  process.exitCode = 1;
+}

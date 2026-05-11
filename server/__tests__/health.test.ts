@@ -84,4 +84,52 @@ describe("runHealthCheck", () => {
     expect(report.ok).toBe(true);
     expect(report.items.every((item) => item.ok)).toBe(true);
   });
+
+  it("does not leak unexpected probe error messages", async () => {
+    const report = await runHealthCheck({
+      config: getConfig({
+        OPENAI_API_KEY: "sk-test",
+        OPENAI_MODEL: "demo-model",
+        TAVILY_API_KEY: "tvly-test"
+      }),
+      chat: vi.fn().mockRejectedValue(new Error("secret sk-live-private")),
+      searchWeb: vi.fn().mockResolvedValue({
+        query: "agent demo health check",
+        resultCount: 0,
+        results: []
+      })
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.items).toContainEqual({
+      name: "LLM probe",
+      ok: false,
+      message: "probe failed"
+    });
+    expect(JSON.stringify(report)).not.toContain("sk-live-private");
+  });
+
+  it("preserves safe upstream probe error summaries", async () => {
+    const report = await runHealthCheck({
+      config: getConfig({
+        OPENAI_API_KEY: "sk-test",
+        OPENAI_MODEL: "demo-model",
+        TAVILY_API_KEY: "tvly-test"
+      }),
+      chat: vi.fn().mockRejectedValue(new Error("LLM request failed with 401: unauthorized")),
+      searchWeb: vi.fn().mockRejectedValue(new Error("Tavily request failed with 401: upstream error"))
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.items).toContainEqual({
+      name: "LLM probe",
+      ok: false,
+      message: "LLM request failed with 401: unauthorized"
+    });
+    expect(report.items).toContainEqual({
+      name: "Tavily probe",
+      ok: false,
+      message: "Tavily request failed with 401: upstream error"
+    });
+  });
 });

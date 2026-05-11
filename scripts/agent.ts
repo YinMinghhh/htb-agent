@@ -1,4 +1,5 @@
 import { runReactAgent } from "../server/agent/reactAgent.js";
+import { formatPublicError } from "../server/health.js";
 
 const question = process.argv.slice(2).join(" ").trim();
 if (!question) {
@@ -6,15 +7,20 @@ if (!question) {
   process.exit(1);
 }
 
-const result = await runReactAgent(question);
+try {
+  const result = await runReactAgent(question);
 
-for (const step of result.trace) {
-  console.log(`\n[${step.status}] ${step.title}`);
-  console.log(step.detail);
+  for (const step of result.trace) {
+    console.log(`\n[${step.status}] ${step.title}`);
+    console.log(step.detail);
+  }
+
+  if (result.answer) {
+    console.log(`\nFinal answer:\n${result.answer}`);
+  }
+
+  process.exitCode = result.answer ? 0 : 1;
+} catch (error) {
+  console.error(`Agent failed: ${formatPublicError(error)}`);
+  process.exitCode = 1;
 }
-
-if (result.answer) {
-  console.log(`\nFinal answer:\n${result.answer}`);
-}
-
-process.exitCode = result.answer ? 0 : 1;
