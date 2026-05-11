@@ -50,6 +50,12 @@ function HealthBadge({ health, fallbackLabel }: { health?: HealthReport; fallbac
   );
 }
 
+function getHealthLabel(health: HealthReport | undefined, copy: ReturnType<typeof t>) {
+  if (!health) return copy.healthFailed;
+  if (health.ok) return copy.healthReady;
+  return health.items.some((item) => item.message === "missing") ? copy.healthMissing : copy.healthFailed;
+}
+
 export default function App() {
   const [language, setLanguage] = useState<Language>("zh");
   const [mode, setMode] = useState<Mode>("chat");
@@ -61,10 +67,7 @@ export default function App() {
   const [error, setError] = useState("");
 
   const copy = t(language);
-  const healthLabel = useMemo(() => {
-    if (!health) return copy.healthFailed;
-    return health.ok ? copy.healthReady : copy.healthMissing;
-  }, [copy.healthFailed, copy.healthMissing, copy.healthReady, health]);
+  const healthLabel = useMemo(() => getHealthLabel(health, copy), [copy, health]);
 
   useEffect(() => {
     let ignore = false;
@@ -73,16 +76,17 @@ export default function App() {
       .then((report) => {
         if (!ignore) setHealth(report);
       })
-      .catch(() => {
+      .catch((caught: unknown) => {
         if (!ignore) {
-          setHealth({ ok: false, items: [{ name: "api", ok: false, message: copy.healthFailed }] });
+          const message = caught instanceof Error ? caught.message : String(caught);
+          setHealth({ ok: false, items: [{ name: "api", ok: false, message }] });
         }
       });
 
     return () => {
       ignore = true;
     };
-  }, [copy.healthFailed]);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -113,7 +117,8 @@ export default function App() {
       ]);
       const result = await runAgent(question);
       setTrace(result.trace);
-      setMessages((current) => [...current, { role: "assistant", content: result.answer }]);
+      const answer = result.answer.trim() || copy.agentNoAnswer;
+      setMessages((current) => [...current, { role: "assistant", content: answer }]);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught);
       setError(message);
@@ -179,6 +184,7 @@ export default function App() {
           className={mode === "chat" ? "mode-button active" : "mode-button"}
           type="button"
           onClick={() => setMode("chat")}
+          disabled={busy}
         >
           <MessageSquare aria-hidden="true" />
           <span>{copy.chatMode}</span>
@@ -187,6 +193,7 @@ export default function App() {
           className={mode === "agent" ? "mode-button active" : "mode-button"}
           type="button"
           onClick={() => setMode("agent")}
+          disabled={busy}
         >
           <Bot aria-hidden="true" />
           <span>{copy.agentMode}</span>
