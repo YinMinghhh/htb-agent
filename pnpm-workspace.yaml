@@ -1,2 +1,3 @@
 overrides:
+  # Vitest 2 otherwise installs a nested Vite 5 type copy while the app stack uses Vite 6 and plugin-react 5; keep config types aligned.
   vite: ^6.0.3
