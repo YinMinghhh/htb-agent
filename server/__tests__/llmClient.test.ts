@@ -111,7 +111,7 @@ describe("llmClient.chat", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 500,
-      text: async () => "authorization bearer lower-token and BEARER UPPER-token"
+      text: async () => "BEARER abc+def/ghi=="
     });
 
     await expect(
@@ -144,14 +144,14 @@ describe("llmClient.chat", () => {
           fetchImpl: fetchMock
         }
       )
-    ).rejects.not.toThrow(/lower-token|UPPER-token/);
+    ).rejects.not.toThrow(/abc|def|ghi/);
   });
 
-  it("redacts the configured API key case-insensitively in simple error text", async () => {
+  it("omits arbitrary short plaintext error text", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 403,
-      text: async () => "denied SK-SECRET"
+      text: async () => "secret: my home address is 1 Main St"
     });
 
     await expect(
@@ -168,7 +168,23 @@ describe("llmClient.chat", () => {
           fetchImpl: fetchMock
         }
       )
-    ).rejects.toThrow("LLM request failed with 403: denied [redacted]");
+    ).rejects.toThrow("LLM request failed with 403: upstream response body omitted");
+
+    await expect(
+      chat(
+        [{ role: "user", content: "hello" }],
+        {
+          config: {
+            openaiBaseUrl: "https://example.test/v1",
+            openaiApiKey: "sk-secret",
+            openaiModel: "demo-model",
+            tavilyApiKey: "tvly-test",
+            port: 8787
+          },
+          fetchImpl: fetchMock
+        }
+      )
+    ).rejects.not.toThrow("1 Main St");
   });
 
   it("allows empty assistant content", async () => {

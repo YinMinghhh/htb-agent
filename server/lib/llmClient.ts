@@ -48,14 +48,19 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
 
 function summarizeErrorText(text: string, apiKey: string): string {
   const withoutApiKey = apiKey ? text.replace(new RegExp(escapeRegExp(apiKey), "gi"), "[redacted]") : text;
-  const redacted = withoutApiKey.replace(
-    /\bbearer\s+(?!bearer\b)[A-Za-z0-9._-]+/gi,
-    "[redacted]"
-  );
-  const summary = redacted.trim();
-  const unsafe = /^\s*[\[{]|[{}"]|\b(message|messages|prompt|content|request|authorization|bearer|api key)\b/i;
-  if (!summary || summary.length > 120 || unsafe.test(summary)) return "upstream response body omitted";
-  return summary;
+  const summary = withoutApiKey.replace(/\bbearer\s+[^\s\r\n\t]+/gi, "[redacted]").trim().toLowerCase();
+  const safeSummaries = new Set([
+    "unauthorized",
+    "forbidden",
+    "not found",
+    "too many requests",
+    "rate limit exceeded",
+    "bad request",
+    "invalid request",
+    "server error",
+    "service unavailable"
+  ]);
+  return safeSummaries.has(summary) ? summary : "upstream response body omitted";
 }
 
 function escapeRegExp(value: string): string {
