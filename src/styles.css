@@ -492,11 +492,19 @@ input:disabled {
   }
 
   .topbar-actions {
+    position: relative;
     width: 100%;
   }
 
   .health-details {
     flex: 1 1 auto;
+    position: static;
+  }
+
+  .health-menu {
+    left: 0;
+    right: 0;
+    width: auto;
   }
 
   .health,
