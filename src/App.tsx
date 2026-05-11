@@ -198,7 +198,7 @@ export default function App() {
         </div>
       </header>
 
-      <section className="mode-switch" aria-label="Mode">
+      <section className="mode-switch" aria-label={copy.modeSwitchLabel}>
         <button
           className={mode === "chat" ? "mode-button active" : "mode-button"}
           type="button"

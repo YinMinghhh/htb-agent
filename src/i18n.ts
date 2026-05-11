@@ -5,6 +5,7 @@ export const copy = {
     appTitle: "如何构建一个 Agent",
     chatMode: "纯 LLM 对话",
     agentMode: "ReAct Agent",
+    modeSwitchLabel: "模式切换",
     inputPlaceholder: "输入一个问题...",
     send: "发送",
     run: "运行 Agent",
@@ -22,13 +23,14 @@ export const copy = {
     traceReason: "推理摘要",
     traceAction: "动作",
     traceObservation: "观察",
-    traceFinal: "最终结果",
+    traceFinal: "最终回答",
     error: "错误"
   },
   en: {
     appTitle: "How to Build an Agent",
     chatMode: "Pure LLM Chat",
     agentMode: "ReAct Agent",
+    modeSwitchLabel: "Mode switch",
     inputPlaceholder: "Ask a question...",
     send: "Send",
     run: "Run Agent",

@@ -10,11 +10,25 @@ async function readJson<T>(response: Response): Promise<T | undefined> {
   }
 }
 
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  const data = await readJson<ErrorResponse>(response.clone());
+  if (data?.error) return data.error;
+  if (data?.message) return data.message;
+
+  try {
+    const text = await response.text();
+    if (text.trim()) return text.trim();
+  } catch {
+    // Keep the status fallback when the body cannot be read.
+  }
+
+  return fallback;
+}
+
 export async function fetchHealth(): Promise<HealthReport> {
   const response = await fetch("/api/health");
   if (!response.ok) {
-    const data = await readJson<ErrorResponse>(response);
-    throw new Error(data?.error ?? data?.message ?? `Health request failed with ${response.status}`);
+    throw new Error(await readErrorMessage(response, `Health request failed with ${response.status}`));
   }
   return response.json() as Promise<HealthReport>;
 }
@@ -25,8 +39,10 @@ export async function sendChat(messages: UiMessage[]): Promise<string> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages })
   });
-  const data = await readJson<{ answer?: string; error?: string }>(response);
-  if (!response.ok) throw new Error(data?.error ?? `Chat request failed with ${response.status}`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Chat request failed with ${response.status}`));
+  }
+  const data = await readJson<{ answer?: string }>(response);
   return data?.answer ?? "";
 }
 
@@ -36,7 +52,9 @@ export async function runAgent(question: string): Promise<{ answer: string; trac
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question })
   });
-  const data = await readJson<{ answer?: string; trace?: TraceStep[]; error?: string }>(response);
-  if (!response.ok) throw new Error(data?.error ?? `Agent request failed with ${response.status}`);
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Agent request failed with ${response.status}`));
+  }
+  const data = await readJson<{ answer?: string; trace?: TraceStep[] }>(response);
   return { answer: data?.answer ?? "", trace: data?.trace ?? [] };
 }
