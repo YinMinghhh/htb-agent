@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getConfig, listMissingConfig } from "../config.js";
+import { getConfig, listMissingConfig, parsePort } from "../config.js";
 import { runHealthCheck } from "../health.js";
 
 describe("config", () => {
@@ -46,6 +46,30 @@ describe("config", () => {
     });
 
     expect(config.openaiBaseUrl).toBe("https://example.test/v1");
+  });
+
+  it("uses the default port when PORT is absent or blank", () => {
+    expect(parsePort(undefined)).toBe(8787);
+    expect(parsePort("")).toBe(8787);
+    expect(parsePort("   ")).toBe(8787);
+    expect(getConfig({ PORT: "   " }).port).toBe(8787);
+  });
+
+  it("accepts valid integer ports after trimming", () => {
+    expect(parsePort("1")).toBe(1);
+    expect(parsePort(" 8788 ")).toBe(8788);
+    expect(parsePort("65535")).toBe(65535);
+    expect(getConfig({ PORT: " 8788 " }).port).toBe(8788);
+  });
+
+  it("uses the fallback for invalid or out-of-range ports", () => {
+    expect(parsePort("abc")).toBe(8787);
+    expect(parsePort("12.5")).toBe(8787);
+    expect(parsePort("0")).toBe(8787);
+    expect(parsePort("-1")).toBe(8787);
+    expect(parsePort("65536")).toBe(8787);
+    expect(parsePort("abc", 3000)).toBe(3000);
+    expect(getConfig({ PORT: "abc" }).port).toBe(8787);
   });
 });
 

@@ -14,8 +14,18 @@ export function getConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     openaiApiKey: normalizeEnvValue(env.OPENAI_API_KEY),
     openaiModel: normalizeEnvValue(env.OPENAI_MODEL),
     tavilyApiKey: normalizeEnvValue(env.TAVILY_API_KEY),
-    port: Number(env.PORT || "8787")
+    port: parsePort(env.PORT)
   };
+}
+
+export function parsePort(value: string | undefined, fallback = 8787): number {
+  const normalized = normalizeEnvValue(value);
+  if (!normalized) return fallback;
+
+  const port = Number(normalized);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return fallback;
+
+  return port;
 }
 
 export function listMissingConfig(config: AppConfig): string[] {

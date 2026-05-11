@@ -1,7 +1,8 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { parsePort } from "./server/config.js";
 
-const apiPort = Number(process.env.PORT || "8787");
+const apiPort = parsePort(process.env.PORT);
 
 export default defineConfig({
   plugins: [react()],
