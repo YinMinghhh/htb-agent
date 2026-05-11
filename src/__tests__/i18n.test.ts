@@ -11,4 +11,8 @@ describe("i18n copy", () => {
     expect(t("en").appTitle).toBe("How to Build an Agent");
     expect(t("en").agentMode).toBe("ReAct Agent");
   });
+
+  it("keeps Chinese and English copy keys in parity", () => {
+    expect(new Set(Object.keys(t("zh")))).toEqual(new Set(Object.keys(t("en"))));
+  });
 });
