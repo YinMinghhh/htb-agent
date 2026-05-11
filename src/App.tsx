@@ -14,26 +14,22 @@ import { fetchHealth, runAgent, sendChat } from "./api";
 import { t } from "./i18n";
 import type { HealthReport, Language, Mode, TraceStep, UiMessage } from "./types";
 
-const initialMessages: UiMessage[] = [
-  {
-    role: "assistant",
-    content: "你好，我是这个 Agent 教学 Demo 的助手。你可以先问一个普通问题，再切换到 ReAct Agent 看执行轨迹。"
-  }
-];
-
-const sampleQuestions = {
-  zh: ["解释一下 ReAct Agent 的循环", "我该如何给 Agent 添加工具？"],
-  en: ["Explain the ReAct Agent loop", "How should I add tools to an agent?"]
-} satisfies Record<Language, string[]>;
-
 function traceIcon(step: TraceStep) {
   if (step.status === "running") return <Loader2 className="spin" aria-hidden="true" />;
   if (step.status === "failed" || step.label === "error") return <XCircle aria-hidden="true" />;
   return <CheckCircle2 aria-hidden="true" />;
 }
 
-function formatTraceLabel(label: TraceStep["label"]) {
-  return label.charAt(0).toUpperCase() + label.slice(1);
+function formatTraceLabel(label: TraceStep["label"], copy: ReturnType<typeof t>) {
+  const labels = {
+    reason: copy.traceReason,
+    action: copy.traceAction,
+    observation: copy.traceObservation,
+    final: copy.traceFinal,
+    error: copy.error
+  } satisfies Record<TraceStep["label"], string>;
+
+  return labels[label];
 }
 
 function HealthBadge({ health, fallbackLabel }: { health?: HealthReport; fallbackLabel: string }) {
@@ -58,7 +54,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>("zh");
   const [mode, setMode] = useState<Mode>("chat");
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [health, setHealth] = useState<HealthReport>();
   const [busy, setBusy] = useState(false);
@@ -112,7 +108,7 @@ export default function App() {
           label: "reason",
           status: "running",
           title: copy.corePath,
-          detail: language === "zh" ? "正在规划下一步..." : "Planning the next step..."
+          detail: copy.running
         }
       ]);
       const result = await runAgent(question);
@@ -198,11 +194,11 @@ export default function App() {
       </section>
 
       <section className={mode === "agent" ? "workspace workspace-agent" : "workspace"}>
-        <section className="panel conversation-panel" aria-label="Conversation">
+        <section className="panel conversation-panel" aria-label={mode === "chat" ? copy.chatMode : copy.agentMode}>
           <div className="panel-header">
             <div>
-              <p>{mode === "chat" ? copy.chatMode : copy.agentMode}</p>
-              <h2>{language === "zh" ? "对话" : "Conversation"}</h2>
+              <p>{copy.corePath}</p>
+              <h2>{mode === "chat" ? copy.chatMode : copy.agentMode}</h2>
             </div>
             {mode === "chat" ? <MessageSquare aria-hidden="true" /> : <Globe2 aria-hidden="true" />}
           </div>
@@ -210,16 +206,14 @@ export default function App() {
           <div className="messages">
             {messages.map((message, index) => (
               <article className={`message ${message.role}`} key={`${message.role}-${index}`}>
-                <span>{message.role === "user" ? (language === "zh" ? "你" : "You") : "Assistant"}</span>
                 <p>{message.content}</p>
               </article>
             ))}
             {busy ? (
               <article className="message assistant">
-                <span>Assistant</span>
                 <p className="typing">
                   <Loader2 className="spin" aria-hidden="true" />
-                  {language === "zh" ? "处理中..." : "Working..."}
+                  {copy.running}
                 </p>
               </article>
             ) : null}
@@ -231,14 +225,6 @@ export default function App() {
               <span>{copy.error}: {error}</span>
             </div>
           ) : null}
-
-          <div className="quick-prompts" aria-label="Suggested questions">
-            {sampleQuestions[language].map((question) => (
-              <button key={question} type="button" onClick={() => setInput(question)} disabled={busy}>
-                {question}
-              </button>
-            ))}
-          </div>
 
           <form className="composer" onSubmit={handleSubmit}>
             <input
@@ -258,7 +244,7 @@ export default function App() {
           <aside className="panel trace-panel" aria-label={copy.traceTitle}>
             <div className="panel-header">
               <div>
-                <p>ReAct</p>
+                <p>{copy.agentMode}</p>
                 <h2>{copy.traceTitle}</h2>
               </div>
               <Activity aria-hidden="true" />
@@ -272,7 +258,7 @@ export default function App() {
                   <article className={`trace-step ${step.status}`} key={step.id}>
                     <div className="trace-icon">{traceIcon(step)}</div>
                     <div>
-                      <span>{formatTraceLabel(step.label)}</span>
+                      <span>{formatTraceLabel(step.label, copy)}</span>
                       <h3>{step.title}</h3>
                       <p>{step.detail}</p>
                     </div>
@@ -283,6 +269,10 @@ export default function App() {
           </aside>
         ) : null}
       </section>
+      <footer className="app-footer">
+        <Languages aria-hidden="true" />
+        <span>OpenAI-compatible API + Tavily Search</span>
+      </footer>
     </main>
   );
 }

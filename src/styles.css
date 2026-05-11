@@ -57,7 +57,8 @@ input:disabled {
 .composer,
 .typing,
 .error-banner,
-.health-row {
+.health-row,
+.app-footer {
   display: flex;
   align-items: center;
 }
@@ -140,7 +141,8 @@ input:disabled {
 .composer button svg,
 .error-banner svg,
 .trace-icon svg,
-.health-row svg {
+.health-row svg,
+.app-footer svg {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
@@ -306,14 +308,6 @@ input:disabled {
   border-color: #175cd3;
 }
 
-.message span {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.78rem;
-  font-weight: 800;
-  opacity: 0.76;
-}
-
 .message p {
   margin: 0;
   overflow-wrap: anywhere;
@@ -333,23 +327,6 @@ input:disabled {
   border: 1px solid #fecdca;
   border-radius: 8px;
   overflow-wrap: anywhere;
-}
-
-.quick-prompts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 0 16px 12px;
-}
-
-.quick-prompts button {
-  min-height: 34px;
-  padding: 0 10px;
-  color: #344054;
-  background: #f8fafc;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
-  font-size: 0.9rem;
 }
 
 .composer {
@@ -476,6 +453,21 @@ input:disabled {
 
 .spin {
   animation: spin 0.9s linear infinite;
+}
+
+.app-footer {
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px;
+  color: #667085;
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 @keyframes spin {

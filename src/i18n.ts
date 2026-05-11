@@ -14,6 +14,11 @@ export const copy = {
     healthFailed: "API 检查失败",
     corePath: "核心调用",
     emptyTrace: "运行 Agent 后会在这里看到推理摘要、动作和观察。",
+    running: "处理中...",
+    traceReason: "推理",
+    traceAction: "动作",
+    traceObservation: "观察",
+    traceFinal: "最终结果",
     error: "错误"
   },
   en: {
@@ -29,6 +34,11 @@ export const copy = {
     healthFailed: "API check failed",
     corePath: "Core path",
     emptyTrace: "Run the agent to see reason summaries, actions, and observations.",
+    running: "Working...",
+    traceReason: "Reason",
+    traceAction: "Action",
+    traceObservation: "Observation",
+    traceFinal: "Final",
     error: "Error"
   }
 } as const;
