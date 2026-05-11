@@ -14,6 +14,25 @@ import { fetchHealth, runAgent, sendChat } from "./api";
 import { t } from "./i18n";
 import type { HealthReport, Language, Mode, TraceStep, UiMessage } from "./types";
 
+let healthCache: HealthReport | undefined;
+let healthRequest: Promise<HealthReport> | undefined;
+
+function getHealthOnce() {
+  if (healthCache) return Promise.resolve(healthCache);
+
+  healthRequest ??= fetchHealth()
+    .then((report) => {
+      healthCache = report;
+      return report;
+    })
+    .catch((caught: unknown) => {
+      healthRequest = undefined;
+      throw caught;
+    });
+
+  return healthRequest;
+}
+
 function traceIcon(step: TraceStep) {
   if (step.status === "running") return <Loader2 className="spin" aria-hidden="true" />;
   if (step.status === "failed" || step.label === "error") return <XCircle aria-hidden="true" />;
@@ -51,7 +70,7 @@ function HealthBadge({ health, fallbackLabel }: { health?: HealthReport; fallbac
 }
 
 function getHealthLabel(health: HealthReport | undefined, copy: ReturnType<typeof t>) {
-  if (!health) return copy.healthFailed;
+  if (!health) return copy.healthChecking;
   if (health.ok) return copy.healthReady;
   return health.items.some((item) => item.message === "missing") ? copy.healthMissing : copy.healthFailed;
 }
@@ -72,7 +91,7 @@ export default function App() {
   useEffect(() => {
     let ignore = false;
 
-    fetchHealth()
+    getHealthOnce()
       .then((report) => {
         if (!ignore) setHealth(report);
       })
@@ -101,7 +120,7 @@ export default function App() {
 
     try {
       if (mode === "chat") {
-        const answer = await sendChat(nextMessages);
+        const answer = (await sendChat(nextMessages)).trim() || copy.chatNoAnswer;
         setMessages((current) => [...current, { role: "assistant", content: answer }]);
         return;
       }
