@@ -36,12 +36,18 @@ export async function chat(messages: ChatMessage[], options: ChatOptions = {}): 
   });
 
   if (!response.ok) {
-    const text = await response.text();
+    const text = redactErrorText(await response.text(), config.openaiApiKey);
     throw new Error(`LLM request failed with ${response.status}: ${text}`);
   }
 
   const data = (await response.json()) as ChatCompletionResponse;
   const answer = data.choices?.[0]?.message?.content;
-  if (!answer) throw new Error("LLM response did not include assistant content");
+  if (typeof answer !== "string") throw new Error("LLM response did not include assistant content");
   return answer;
+}
+
+function redactErrorText(text: string, apiKey: string): string {
+  const truncated = text.length > 500 ? `${text.slice(0, 500)}...` : text;
+  const withoutConfiguredKey = apiKey ? truncated.replaceAll(apiKey, "[redacted]") : truncated;
+  return withoutConfiguredKey.replace(/\bBearer\s+(?!Bearer\b)[A-Za-z0-9._-]+/g, "[redacted]");
 }
