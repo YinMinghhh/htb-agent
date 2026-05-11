@@ -46,7 +46,20 @@ export async function runReactAgent(
 
   for (let stepIndex = 0; stepIndex < maxSteps; stepIndex += 1) {
     const raw = await chat(buildMessages(question, observations));
-    const step = parseAgentStep(raw);
+    let step: AgentStep;
+    try {
+      step = parseAgentStep(raw);
+    } catch {
+      trace.push(
+        makeTraceStep(
+          "error",
+          "failed",
+          "模型输出无效",
+          "Agent could not parse a valid action or final answer."
+        )
+      );
+      return { answer: "", trace };
+    }
 
     if (step.type === "final") {
       trace.push(makeTraceStep("final", "succeeded", "最终回答", step.answer));
@@ -55,7 +68,11 @@ export async function runReactAgent(
 
     const query = step.action.input.query;
     trace.push(makeTraceStep("reason", "succeeded", "推理摘要", step.reason_summary));
-    trace.push(makeTraceStep("action", "running", "搜索网页", `search_web(${query})`, { query }));
+    trace.push(
+      makeTraceStep("action", "running", "搜索网页", `search_web(${JSON.stringify(query)})`, {
+        query
+      })
+    );
 
     try {
       const observation = await searchWeb(query);
@@ -112,19 +129,31 @@ function buildMessages(question: string, observations: SearchObservation[]): Cha
 
 function parseAgentStep(raw: string): AgentStep {
   const jsonText = extractJson(raw);
-  const parsed = JSON.parse(jsonText) as AgentStep;
+  const parsed = JSON.parse(jsonText) as unknown;
 
-  if (parsed.type === "final" && typeof parsed.answer === "string") return parsed;
+  if (!isRecord(parsed)) throw new Error("Invalid agent step");
+  if (parsed.type === "final" && typeof parsed.answer === "string") {
+    return { type: "final", answer: parsed.answer };
+  }
   if (
     parsed.type === "action" &&
     typeof parsed.reason_summary === "string" &&
-    parsed.action?.name === "search_web" &&
-    typeof parsed.action.input?.query === "string"
+    isRecord(parsed.action) &&
+    parsed.action.name === "search_web" &&
+    isRecord(parsed.action.input) &&
+    typeof parsed.action.input.query === "string"
   ) {
-    return parsed;
+    return {
+      type: "action",
+      reason_summary: parsed.reason_summary,
+      action: {
+        name: "search_web",
+        input: { query: parsed.action.input.query }
+      }
+    };
   }
 
-  throw new Error(`Invalid agent step: ${raw}`);
+  throw new Error("Invalid agent step");
 }
 
 function extractJson(raw: string): string {
@@ -140,6 +169,10 @@ function formatObservation(observation: SearchObservation): string {
   return observation.results
     .map((result, index) => `${index + 1}. ${result.title}\n${result.url}\n${result.snippet}`)
     .join("\n\n");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function makeTraceStep(

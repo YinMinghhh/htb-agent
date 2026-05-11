@@ -42,6 +42,7 @@ describe("runReactAgent", () => {
 
     expect(result.answer).toBe("这是基于搜索结果的回答。");
     expect(searchWeb).toHaveBeenCalledWith("latest agent news");
+    expect(chat.mock.calls[1]?.[0][1]?.content).toContain("A concise result.");
     expect(result.trace.map((step) => step.label)).toEqual([
       "reason",
       "action",
@@ -75,6 +76,54 @@ describe("runReactAgent", () => {
       label: "error",
       status: "failed",
       title: "Step limit reached"
+    });
+  });
+
+  it("returns a generic failed trace step when model output is malformed", async () => {
+    const rawModelOutput = "SECRET_RAW_MODEL_OUTPUT";
+    const chat = vi.fn().mockResolvedValue(rawModelOutput);
+    const searchWeb = vi.fn();
+
+    const result = await runReactAgent("问题", { chat, searchWeb, maxSteps: 1 });
+
+    expect(result.answer).toBe("");
+    expect(searchWeb).not.toHaveBeenCalled();
+    expect(result.trace.at(-1)).toMatchObject({
+      label: "error",
+      status: "failed",
+      title: "模型输出无效",
+      detail: "Agent could not parse a valid action or final answer."
+    });
+    expect(result.trace.map((step) => step.detail).join("\n")).not.toContain(rawModelOutput);
+  });
+
+  it("marks the action failed and returns an error trace when search fails", async () => {
+    const chat = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        type: "action",
+        reason_summary: "需要搜索。",
+        action: {
+          name: "search_web",
+          input: { query: "bad query" }
+        }
+      })
+    );
+    const searchWeb = vi.fn().mockRejectedValue(new Error("Search exploded"));
+
+    const result = await runReactAgent("问题", { chat, searchWeb, maxSteps: 1 });
+
+    expect(result.answer).toBe("");
+    expect(result.trace.map((step) => step.label)).toEqual(["reason", "action", "error"]);
+    expect(result.trace[1]).toMatchObject({
+      label: "action",
+      status: "failed",
+      detail: 'search_web("bad query")'
+    });
+    expect(result.trace.at(-1)).toMatchObject({
+      label: "error",
+      status: "failed",
+      title: "工具调用失败",
+      detail: "Search exploded"
     });
   });
 });
