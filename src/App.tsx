@@ -278,7 +278,7 @@ export default function App() {
       </section>
       <footer className="app-footer">
         <Languages aria-hidden="true" />
-        <span>OpenAI-compatible API + Tavily Search</span>
+        <span>{copy.footerText}</span>
       </footer>
     </main>
   );
