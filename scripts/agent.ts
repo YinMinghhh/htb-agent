@@ -1,5 +1,5 @@
 import { runReactAgent } from "../server/agent/reactAgent.js";
-import { formatPublicError } from "../server/health.js";
+import { formatPublicError } from "../server/errors.js";
 
 const question = process.argv.slice(2).join(" ").trim();
 if (!question) {

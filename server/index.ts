@@ -3,7 +3,8 @@ import cors from "cors";
 import express, { type Express } from "express";
 import { getConfig } from "./config.js";
 import { runReactAgent as defaultRunReactAgent } from "./agent/reactAgent.js";
-import { formatPublicError, runHealthCheck as defaultRunHealthCheck } from "./health.js";
+import { formatPublicError } from "./errors.js";
+import { runHealthCheck as defaultRunHealthCheck } from "./health.js";
 import { chat as defaultChat } from "./lib/llmClient.js";
 import type { ChatMessage } from "./types.js";
 
@@ -23,7 +24,11 @@ export function createApp(dependencies: AppDependencies = {}): Express {
   app.use(express.json());
 
   app.get("/api/health", async (_request, response) => {
-    response.json(await runHealthCheck());
+    try {
+      response.json(await runHealthCheck());
+    } catch (error) {
+      response.status(500).json({ error: formatPublicError(error) });
+    }
   });
 
   app.post("/api/chat", async (request, response) => {
@@ -54,6 +59,21 @@ export function createApp(dependencies: AppDependencies = {}): Express {
     }
   });
 
+  app.use(
+    (
+      error: unknown,
+      _request: express.Request,
+      response: express.Response,
+      next: express.NextFunction
+    ) => {
+      if (isJsonParseError(error)) {
+        response.status(400).json({ error: "Invalid JSON request" });
+        return;
+      }
+      next(error);
+    }
+  );
+
   return app;
 }
 
@@ -61,6 +81,7 @@ function isChatRequest(body: unknown): body is { messages: ChatMessage[] } {
   return (
     isRecord(body) &&
     Array.isArray(body.messages) &&
+    body.messages.length > 0 &&
     body.messages.every(
       (message) =>
         isRecord(message) &&
@@ -80,6 +101,15 @@ function isChatRole(value: unknown): value is ChatMessage["role"] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isJsonParseError(error: unknown): boolean {
+  return (
+    error instanceof SyntaxError &&
+    isRecord(error) &&
+    error.status === 400 &&
+    "body" in error
+  );
 }
 
 if (isDirectExecution()) {
