@@ -42,7 +42,9 @@ export async function searchWeb(
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Tavily request failed with ${response.status}: ${text}`);
+    throw new Error(
+      `Tavily request failed with ${response.status}: ${summarizeErrorBody(text, apiKey)}`
+    );
   }
 
   const data = (await response.json()) as TavilyResponse;
@@ -57,4 +59,27 @@ export async function searchWeb(
     results,
     resultCount: results.length
   };
+}
+
+function summarizeErrorBody(text: string, apiKey: string): string {
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  if (!trimmed) return "upstream error";
+
+  const redacted = redactSecrets(trimmed, apiKey);
+  if (isSafePlainError(redacted)) return redacted;
+
+  return "upstream error";
+}
+
+function redactSecrets(text: string, apiKey: string): string {
+  let redacted = text.replace(
+    /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi,
+    "Bearer [redacted]"
+  );
+  if (apiKey) redacted = redacted.split(apiKey).join("[redacted]");
+  return redacted;
+}
+
+function isSafePlainError(text: string): boolean {
+  return /^invalid api key\.?$/i.test(text);
 }

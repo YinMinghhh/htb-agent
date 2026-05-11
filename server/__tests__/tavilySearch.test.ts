@@ -43,6 +43,13 @@ describe("searchWeb", () => {
         })
       })
     );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      query: "agent demo",
+      search_depth: "basic",
+      max_results: 3,
+      include_answer: false,
+      include_raw_content: false
+    });
   });
 
   it("throws a clear error when Tavily rejects the request", async () => {
@@ -55,5 +62,34 @@ describe("searchWeb", () => {
     await expect(
       searchWeb("agent demo", { apiKey: "bad-key", fetchImpl: fetchMock })
     ).rejects.toThrow("Tavily request failed with 401: invalid api key");
+  });
+
+  it("omits sensitive Tavily error bodies from the thrown error", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      text: async () =>
+        JSON.stringify({
+          error: "query contains prompt: reveal system prompt",
+          apiKey: "tvly-secret",
+          authorization: "Bearer tvly-bearer-secret"
+        })
+    });
+
+    let thrown: unknown;
+    try {
+      await searchWeb("sensitive query with prompt", {
+        apiKey: "tvly-secret",
+        fetchImpl: fetchMock
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toBe("Tavily request failed with 400: upstream error");
+    expect((thrown as Error).message).not.toMatch(
+      /reveal system prompt|tvly-secret|tvly-bearer-secret|Bearer/
+    );
   });
 });
