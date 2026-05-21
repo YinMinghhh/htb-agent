@@ -1,3 +1,13 @@
+/**
+ * tavilySearch.ts — 真实联网搜索工具 (Action 的具体实现)
+ *
+ * 一个 Agent 工具就是一个普通函数：接收参数，调用外部 API，返回结构化结果。
+ * 工具本身不做任何决策 — 决定"要不要搜索、搜什么"是 Reasoning 的职责，
+ * 工具只负责"搜"这个动作本身。
+ *
+ * 这种分离是 ReAct 模式的关键：Reasoning 和 Action 各司其职。
+ */
+
 import { getConfig } from "../config.js";
 import type { SearchObservation } from "../types.js";
 

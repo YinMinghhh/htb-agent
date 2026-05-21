@@ -1,3 +1,11 @@
+/**
+ * llmClient.ts — 最短的 OpenAI-compatible Chat Completion 调用
+ *
+ * 这个文件代表"纯 LLM"：输入 messages，输出 assistant text。
+ * 它不理解 Agent、不知道工具、没有循环。
+ * reactAgent.ts 复用这个函数来获得模型的每一步推理结果。
+ */
+
 import { getConfig, type AppConfig } from "../config.js";
 import type { ChatMessage } from "../types.js";
 
@@ -15,6 +23,10 @@ interface ChatCompletionResponse {
   }>;
 }
 
+/**
+ * 发送一组 messages 到 OpenAI-compatible API，返回 assistant 的文本回复。
+ * 这就是所有 LLM 应用的最底层调用 — Agent 也是在这个基础上搭建的。
+ */
 export async function chat(messages: ChatMessage[], options: ChatOptions = {}): Promise<string> {
   const config = options.config ?? getConfig();
   const fetchImpl = options.fetchImpl ?? fetch;

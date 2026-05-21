@@ -1,8 +1,26 @@
 {
   "name": "htb-agent",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "A minimal ReAct agent demo showing how Reasoning + Action turns a plain LLM into an autonomous agent",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yinming/htb-agent"
+  },
+  "keywords": [
+    "agent",
+    "react-loop",
+    "reasoning",
+    "action",
+    "llm",
+    "openai",
+    "tavily",
+    "educational"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "concurrently -k \"pnpm dev:server\" \"pnpm dev:web\"",
     "dev:server": "tsx watch server/index.ts",
