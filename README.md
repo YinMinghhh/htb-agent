@@ -14,6 +14,8 @@
 **建议首先打开配套的演讲稿**，它用图文和代码片段逐步讲清了 Agent 的核心原理：
 
 ```bash
+git clone git@github.com:YinMinghhh/htb-agent.git
+cd htb-agent
 open presentations/how-to-build-an-agent/index.html
 ```
 
