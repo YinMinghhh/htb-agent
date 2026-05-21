@@ -308,10 +308,45 @@ input:disabled {
   border-color: #175cd3;
 }
 
-.message p {
+.message-text,
+.message-content {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.message-text {
   white-space: pre-wrap;
+}
+
+.message-content > :first-child {
+  margin-top: 0;
+}
+
+.message-content > :last-child {
+  margin-bottom: 0;
+}
+
+.message-content p,
+.message-content ul,
+.message-content ol {
+  margin: 0 0 0.65rem;
+}
+
+.message-content ul,
+.message-content ol {
+  padding-left: 1.25rem;
+}
+
+.message-content li + li {
+  margin-top: 0.28rem;
+}
+
+.message-content code {
+  padding: 0.1rem 0.25rem;
+  border-radius: 5px;
+  background: rgb(15 23 42 / 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
 }
 
 .typing {
@@ -373,10 +408,13 @@ input:disabled {
 }
 
 .trace-list {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 16px;
+  overflow-y: auto;
 }
 
 .trace-empty {
@@ -468,6 +506,76 @@ input:disabled {
   font-weight: 700;
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+.deck-embed {
+  width: min(1120px, calc(100% - 24px));
+  min-height: 100vh;
+  padding: 14px 0 12px;
+}
+
+.deck-embed .topbar {
+  padding: 6px 0 12px;
+}
+
+.deck-embed .brand > svg {
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+}
+
+.deck-embed .brand h1 {
+  font-size: 1.36rem;
+}
+
+.deck-embed .brand p,
+.deck-embed .panel-header p {
+  font-size: 0.72rem;
+}
+
+.deck-embed .health,
+.deck-embed .icon-button {
+  min-height: 34px;
+  font-size: 0.84rem;
+}
+
+.deck-embed .mode-switch {
+  max-width: 520px;
+}
+
+.deck-embed .mode-button {
+  min-height: 38px;
+}
+
+.deck-embed .workspace {
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.deck-embed .panel,
+.deck-embed .trace-panel {
+  min-height: min(536px, calc(100vh - 188px));
+}
+
+.deck-embed .panel-header {
+  padding: 12px 14px;
+}
+
+.deck-embed .messages {
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.deck-embed .message {
+  padding: 10px 12px;
+}
+
+.deck-embed .composer {
+  padding: 11px 14px 12px;
+}
+
+.deck-embed .app-footer {
+  display: none;
 }
 
 @keyframes spin {

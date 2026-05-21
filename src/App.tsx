@@ -10,6 +10,7 @@ import {
   Send,
   XCircle
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { fetchHealth, runAgent, sendChat } from "./api";
 import { t } from "./i18n";
 import type { HealthReport, Language, Mode, TraceStep, UiMessage } from "./types";
@@ -75,17 +76,39 @@ function getHealthLabel(health: HealthReport | undefined, copy: ReturnType<typeo
   return health.items.some((item) => item.message === "missing") ? copy.healthMissing : copy.healthFailed;
 }
 
+function normalizeAssistantMarkdown(content: string) {
+  return content.replace(/\\n/g, "\n");
+}
+
+function MessageContent({ message }: { message: UiMessage }) {
+  if (message.role === "user") {
+    return <p className="message-text">{message.content}</p>;
+  }
+
+  return (
+    <div className="message-content">
+      <ReactMarkdown>{normalizeAssistantMarkdown(message.content)}</ReactMarkdown>
+    </div>
+  );
+}
+
 export default function App() {
   const [language, setLanguage] = useState<Language>("zh");
   const [mode, setMode] = useState<Mode>("chat");
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<UiMessage[]>([]);
+  const [agentMessages, setAgentMessages] = useState<UiMessage[]>([]);
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [health, setHealth] = useState<HealthReport>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const isDeckEmbed = useMemo(
+    () => new URLSearchParams(window.location.search).has("deck"),
+    []
+  );
   const copy = t(language);
+  const messages = mode === "chat" ? chatMessages : agentMessages;
   const healthLabel = useMemo(() => getHealthLabel(health, copy), [copy, health]);
 
   useEffect(() => {
@@ -113,7 +136,11 @@ export default function App() {
     if (!question || busy) return;
 
     const nextMessages = [...messages, { role: "user", content: question } satisfies UiMessage];
-    setMessages(nextMessages);
+    if (mode === "chat") {
+      setChatMessages(nextMessages);
+    } else {
+      setAgentMessages(nextMessages);
+    }
     setInput("");
     setError("");
     setBusy(true);
@@ -121,7 +148,7 @@ export default function App() {
     try {
       if (mode === "chat") {
         const answer = (await sendChat(nextMessages)).trim() || copy.chatNoAnswer;
-        setMessages((current) => [...current, { role: "assistant", content: answer }]);
+        setChatMessages((current) => [...current, { role: "assistant", content: answer }]);
         return;
       }
 
@@ -137,7 +164,7 @@ export default function App() {
       const result = await runAgent(question);
       setTrace(result.trace);
       const answer = result.answer.trim() || copy.agentNoAnswer;
-      setMessages((current) => [...current, { role: "assistant", content: answer }]);
+      setAgentMessages((current) => [...current, { role: "assistant", content: answer }]);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : String(caught);
       setError(message);
@@ -159,7 +186,7 @@ export default function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={isDeckEmbed ? "app-shell deck-embed" : "app-shell"}>
       <header className="topbar">
         <div className="brand">
           <Bot aria-hidden="true" />
@@ -232,7 +259,7 @@ export default function App() {
           <div className="messages">
             {messages.map((message, index) => (
               <article className={`message ${message.role}`} key={`${message.role}-${index}`}>
-                <p>{message.content}</p>
+                <MessageContent message={message} />
               </article>
             ))}
             {busy ? (

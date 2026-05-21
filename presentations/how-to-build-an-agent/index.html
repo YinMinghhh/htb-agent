@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Build an Agent</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f6f8fb;
+    --surface: #ffffff;
+    --surface-soft: #f1f5f9;
+    --border: #d8e0ea;
+    --text: #182230;
+    --text-dim: #667085;
+    --accent: #2563eb;
+    --accent-dim: #1d4ed8;
+    --green: #128a47;
+    --orange: #b45309;
+    --red: #d92d20;
+    --purple: #7c3aed;
+    --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+    --font-sans: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+
+  html, body {
+    height: 100%; overflow: hidden;
+    font-family: var(--font-sans);
+    background: var(--bg); color: var(--text);
+  }
+
+	  /* ── Page Container ── */
+	  .deck {
+	    position: relative; height: 100%; width: 100%;
+	  }
+
+	  .page {
+	    display: none; height: 100%; overflow-y: auto;
+	    align-items: center; justify-content: center;
+	    padding: 56px 72px 104px;
+	  }
+	  .page.active { display: flex; }
+
+  .page-inner { max-width: 820px; width: 100%; }
+
+  /* ── Typography ── */
+  h1 { font-size: 3rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; }
+  h2 { font-size: 1.75rem; font-weight: 600; margin-bottom: 28px; color: var(--accent); }
+  h3 { font-size: 1.15rem; font-weight: 600; margin: 24px 0 10px; }
+  p, li { font-size: 1.08rem; line-height: 1.7; color: var(--text); }
+  p + p { margin-top: 14px; }
+  ul { padding-left: 20px; }
+  li + li { margin-top: 8px; }
+
+  .subtitle { font-size: 1.25rem; color: var(--text-dim); margin-top: 12px; }
+  .chapter-num { font-size: 0.85rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 6px; }
+
+  /* ── Title Page ── */
+  .title-page { text-align: center; }
+  .title-page h1 { font-size: 3.8rem; background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .title-page .subtitle { margin-top: 16px; font-size: 1.3rem; }
+  .title-page .meta { margin-top: 40px; font-size: 0.95rem; color: var(--text-dim); }
+
+  /* ── Code Block ── */
+  .code-block {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; margin: 14px 0; overflow-x: auto; box-shadow: var(--shadow);
+    font-family: var(--font-mono); font-size: 0.84rem; line-height: 1.6;
+    white-space: pre; color: #243041;
+  }
+  .code-block .kw { color: #c2410c; }
+  .code-block .fn { color: #6d28d9; }
+  .code-block .str { color: #0369a1; }
+  .code-block .cm { color: #667085; font-style: italic; }
+  .code-block .num { color: #2563eb; }
+  .code-block .op { color: #c2410c; }
+
+  /* ── Diagram ── */
+  .diagram {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 28px 32px; margin: 20px 0; overflow-x: auto; box-shadow: var(--shadow);
+  }
+  .diagram-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
+  .diagram-box {
+    padding: 10px 18px; border-radius: 6px; font-weight: 600; font-size: 0.92rem;
+    white-space: nowrap;
+  }
+  .diagram-box.think { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+  .diagram-box.act  { background: rgba(163,113,247,0.15); color: var(--purple); border: 1px solid rgba(163,113,247,0.3); }
+  .diagram-box.obs  { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .diagram-box.llm  { background: rgba(210,153,29,0.15); color: var(--orange); border: 1px solid rgba(210,153,29,0.3); }
+  .diagram-box.tool { background: rgba(248,81,73,0.12); color: var(--red); border: 1px solid rgba(248,81,73,0.25); }
+  .diagram-arrow { color: var(--text-dim); font-size: 1.3rem; }
+  .react-loop { min-width: 0; }
+  .react-stage {
+    display: grid;
+    grid-template-columns: minmax(104px, 1fr) 20px minmax(104px, 1fr) 20px minmax(120px, 1fr) 20px minmax(104px, 1fr);
+    align-items: center; column-gap: 8px;
+  }
+  .react-stage .diagram-box { min-width: 0; padding: 8px 10px; font-size: 0.84rem; }
+  .react-stage .diagram-arrow { text-align: center; font-size: 1.05rem; }
+  .loop-back {
+    grid-column: 1 / 6; width: auto; margin: 8px 58px 0; height: 42px;
+    border: 2px solid rgba(37, 99, 235, 0.42); border-top: 0; border-radius: 0 0 18px 18px;
+    position: relative;
+  }
+  .loop-back::before {
+    content: "循环下一步"; position: absolute; left: 50%; top: 20px; transform: translateX(-50%);
+    background: var(--surface); color: var(--text-dim); padding: 0 8px; font-size: 0.78rem; font-weight: 600;
+  }
+  .loop-back::after {
+    content: "↑"; position: absolute; left: -8px; top: -15px; color: var(--accent); font-size: 1.15rem; font-weight: 700;
+  }
+  .agent-arch {
+    margin: 18px 0 22px; aspect-ratio: 820 / 340;
+    border: 1px solid var(--border); border-radius: 12px;
+    background:
+      radial-gradient(circle at 54% 50%, rgba(37, 99, 235, 0.08), transparent 36%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .agent-arch svg { display: block; width: 100%; height: 100%; }
+  .agent-arch text { font-family: var(--font-sans); }
+  .arch-title { fill: var(--text-dim); font-size: 15px; font-weight: 700; }
+	  .arch-node-title { fill: var(--text); font-size: 14px; font-weight: 700; }
+	  .arch-node-sub { fill: var(--text-dim); font-size: 12px; font-weight: 600; }
+	  .arch-note { fill: var(--text-dim); font-size: 11px; font-weight: 600; }
+
+	  /* ── Live demo slide ── */
+	  .demo-page {
+	    align-items: stretch;
+	    padding: 34px 48px 88px;
+	  }
+	  .demo-page .page-inner {
+	    max-width: 1160px;
+	    display: flex;
+	    flex-direction: column;
+	    gap: 14px;
+	  }
+	  .demo-page h2 {
+	    margin-bottom: 0;
+	  }
+	  .demo-header {
+	    display: flex;
+	    align-items: flex-end;
+	    justify-content: space-between;
+	    gap: 18px;
+	  }
+	  .demo-live-url {
+	    flex: 0 0 auto;
+	    color: var(--text-dim);
+	    font-family: var(--font-mono);
+	    font-size: 0.78rem;
+	  }
+	  .demo-frame-shell {
+	    min-height: 0;
+	    flex: 1 1 auto;
+	    border: 1px solid var(--border);
+	    border-radius: 12px;
+	    background: var(--surface);
+	    box-shadow: var(--shadow);
+	    overflow: hidden;
+	  }
+	  .live-demo-frame {
+	    display: block;
+	    width: 100%;
+	    height: 100%;
+	    min-height: clamp(480px, calc(100vh - 190px), 760px);
+	    border: 0;
+	    background: #f5f7fb;
+	  }
+
+  /* ── Compare Table (not PPT-style) ── */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;
+  }
+  .compare-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 22px 26px; box-shadow: var(--shadow);
+  }
+  .compare-card h3 { margin: 0 0 10px; font-size: 1.1rem; }
+  .compare-card p { font-size: 0.98rem; }
+
+  /* ── Nav ── */
+  .nav-bar {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 6px; z-index: 10;
+  }
+  .nav-dot {
+    width: 10px; height: 10px; display: grid; place-items: center;
+    border-radius: 50%; border: 1.5px solid var(--border);
+    background: transparent; color: transparent; cursor: pointer;
+    font-size: 0; font-weight: 700; line-height: 1;
+    transition: width 0.2s, height 0.2s, background 0.2s, border-color 0.2s, color 0.2s, font-size 0.2s;
+  }
+  .nav-dot.active {
+    width: 22px; height: 22px;
+    background: var(--accent); border-color: var(--accent); color: #ffffff;
+    font-size: 0.72rem;
+  }
+  .nav-dot:hover { border-color: var(--text-dim); }
+  .nav-dot.active:hover { border-color: var(--accent-dim); }
+
+  .nav-hint {
+    position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%);
+    font-size: 0.82rem; color: var(--text-dim); z-index: 10;
+  }
+
+  /* ── Key point callout ── */
+  .callout {
+    border-left: 3px solid var(--accent); padding: 12px 18px; margin: 18px 0;
+    background: #eff6ff; border-radius: 0 6px 6px 0;
+    font-size: 1.02rem;
+  }
+
+	  /* ── Paper Card ── */
+	  .paper-card {
+	    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+	    padding: 24px 28px; margin: 10px 0 20px; box-shadow: var(--shadow);
+	    position: relative;
+	  }
+	  .paper-badge {
+	    display: inline-block; padding: 3px 14px; border-radius: 999px;
+	    background: linear-gradient(135deg, var(--accent), var(--purple));
+	    color: #fff; font-size: 0.78rem; font-weight: 700;
+	    letter-spacing: 0.04em; margin-bottom: 12px;
+	  }
+	  .paper-title {
+	    font-size: 1.22rem; font-weight: 700; line-height: 1.4; color: var(--text);
+	    margin-bottom: 8px;
+	  }
+	  .paper-authors {
+	    font-size: 0.88rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 2px;
+	  }
+	  .paper-affil {
+	    font-size: 0.8rem; color: var(--text-dim); font-style: italic; margin-bottom: 4px;
+	  }
+	  .paper-meta {
+	    font-family: var(--font-mono); font-size: 0.78rem; color: var(--accent);
+	    margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+	  }
+
+  /* ── Chapter 1 Agent capability visual ── */
+  .agent-visual {
+    position: relative; height: 330px; margin: 10px 0 22px;
+    border: 1px solid var(--border); border-radius: 18px;
+    background:
+      radial-gradient(circle at 50% 48%, rgba(37, 99, 235, 0.10), transparent 38%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .capability-lines {
+    position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+  }
+  .capability-lines path {
+    stroke: #9bb8ff; stroke-width: 2; fill: none; stroke-linecap: round;
+  }
+  .chat-thumb {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 280px; padding: 14px; border-radius: 16px;
+    background: var(--surface); border: 1px solid #c8d7ee; box-shadow: 0 16px 40px rgba(37, 99, 235, 0.14);
+  }
+  .chat-topbar {
+    display: flex; align-items: center; gap: 5px; margin-bottom: 12px;
+  }
+  .chat-dot { width: 7px; height: 7px; border-radius: 999px; background: #cbd5e1; }
+  .chat-title { margin-left: 8px; width: 86px; height: 8px; border-radius: 999px; background: #dbeafe; }
+  .chat-message { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
+  .avatar {
+    width: 22px; height: 22px; flex: 0 0 auto; border-radius: 999px;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+  }
+  .bubble {
+    flex: 1; min-height: 36px; border-radius: 12px; padding: 8px 10px;
+    background: #f1f5f9;
+  }
+  .bubble.assistant { background: #eef4ff; }
+  .line { height: 7px; border-radius: 999px; background: #94a3b8; opacity: 0.55; margin-bottom: 6px; }
+  .line.short { width: 56%; }
+  .line.mid { width: 78%; }
+  .line.long { width: 92%; }
+  .typing { display: flex; gap: 4px; margin-top: 2px; }
+  .typing span { width: 5px; height: 5px; border-radius: 999px; background: var(--accent); opacity: 0.65; }
+  .chat-input {
+    height: 24px; margin-top: 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: #f8fafc;
+  }
+  .cap-node {
+    position: absolute; width: 168px; min-height: 74px; padding: 12px 14px;
+    display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center;
+    border-radius: 14px; background: rgba(255, 255, 255, 0.86);
+    border: 1px solid #d8e0ea; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(6px);
+  }
+  .cap-node svg { width: 34px; height: 34px; color: var(--accent); }
+  .cap-emoji {
+    width: 34px; height: 34px; display: grid; place-items: center;
+    font-size: 1.55rem; line-height: 1;
+  }
+  .cap-node strong { display: block; font-size: 0.94rem; line-height: 1.2; }
+  .cap-node span { display: block; margin-top: 3px; color: var(--text-dim); font-size: 0.72rem; line-height: 1.3; }
+  .cap-node.perception { left: 38px; top: 38px; }
+  .cap-node.reasoning { right: 38px; top: 38px; }
+  .cap-node.action { left: 38px; bottom: 36px; }
+  .cap-node.memory { right: 38px; bottom: 36px; }
+  .module-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px;
+  }
+  .module-card {
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+    background: rgba(255, 255, 255, 0.72);
+  }
+  .module-card strong { display: block; font-size: 0.95rem; margin-bottom: 3px; }
+  .module-card p { font-size: 0.84rem; line-height: 1.55; color: var(--text-dim); }
+
+  /* ── Chapter 1 context engineering visual ── */
+  .context-visual {
+    margin: 4px 0 18px; aspect-ratio: 820 / 400;
+    border: 1px solid var(--border); border-radius: 18px;
+    background:
+      radial-gradient(circle at 78% 24%, rgba(37, 99, 235, 0.10), transparent 27%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .context-diagram { display: block; width: 100%; height: 100%; }
+  .context-diagram text { font-family: var(--font-sans); }
+  .context-doc-title { font-size: 13px; font-weight: 700; fill: var(--text); }
+  .context-doc-body { font-size: 12px; font-weight: 700; fill: var(--text); }
+  .context-agent-label { font-size: 12px; font-weight: 700; fill: var(--text-dim); }
+  .context-line { stroke: #cbd5e1; stroke-width: 5; stroke-linecap: round; opacity: 0.72; }
+  .context-note {
+    display: grid; gap: 8px; margin-top: 10px;
+    padding: 14px 18px; border-left: 3px solid var(--accent);
+    background: #eff6ff; border-radius: 0 8px 8px 0;
+  }
+  .context-note p { font-size: 0.98rem; line-height: 1.62; color: var(--text); }
+
+  @media (max-width: 700px) {
+    .page { padding: 32px 24px 92px; }
+    h1 { font-size: 2rem; }
+    .title-page h1 { font-size: 2.4rem; }
+    .compare { grid-template-columns: 1fr; }
+    .react-loop { min-width: 0; }
+    .react-stage { grid-template-columns: 1fr; gap: 10px; }
+    .react-stage .diagram-arrow { transform: rotate(90deg); justify-self: center; }
+    .loop-back { display: none; }
+    .agent-visual { height: auto; padding: 18px; display: grid; gap: 12px; }
+    .capability-lines { display: none; }
+    .chat-thumb, .cap-node { position: static; transform: none; width: 100%; }
+    .module-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ════════════════════════════════════════════ PAGE 0: Title ════════════════════════════════════════════ -->
+  <section class="page title-page">
+    <div class="page-inner">
+      <h1>How to Build<br>an Agent</h1>
+      <p class="subtitle">从 ReAct 模式开始，理解自主推理与行动循环</p>
+      <p class="meta">后端组技术分享 &nbsp;·&nbsp; 2026.05.13</p>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ PAGE 1: 什么是 Agent ════════════════════════════════════════════ -->
+  <section class="page">
+    <div class="page-inner">
+      <div class="chapter-num">Chapter 1</div>
+      <h2>什么是 Agent</h2>
+
+      <div class="agent-visual" aria-label="Agent 四个能力：Perception、Reasoning、Action、Memory">
+        <svg class="capability-lines" viewBox="0 0 820 330" aria-hidden="true">
+          <path d="M330 128 C272 92 236 76 178 74" />
+          <path d="M490 128 C548 92 584 76 642 74" />
+          <path d="M330 202 C272 236 236 254 178 256" />
+          <path d="M490 202 C548 236 584 254 642 256" />
+        </svg>
+
+        <div class="chat-thumb" aria-hidden="true">
+          <div class="chat-topbar">
+            <span class="chat-dot"></span>
+            <span class="chat-dot"></span>
+            <span class="chat-dot"></span>
+            <span class="chat-title"></span>
+          </div>
+          <div class="chat-message">
+            <div class="avatar"></div>
+            <div class="bubble">
+              <div class="line long"></div>
+              <div class="line short"></div>
+            </div>
+          </div>
+          <div class="chat-message">
+            <div class="avatar" style="background:linear-gradient(135deg,#64748b,#94a3b8);"></div>
+            <div class="bubble assistant">
+              <div class="line mid"></div>
+              <div class="line long"></div>
+              <div class="typing"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+          <div class="chat-input"></div>
+        </div>
+
+        <div class="cap-node perception">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 24s7-11 19-11 19 11 19 11-7 11-19 11S5 24 5 24Z" />
+            <circle cx="24" cy="24" r="5" />
+          </svg>
+          <div><strong>Perception</strong><span>看见输入与环境</span></div>
+        </div>
+
+        <div class="cap-node reasoning">
+          <div class="cap-emoji" aria-hidden="true">🧠</div>
+          <div><strong>Reasoning</strong><span>判断下一步</span></div>
+        </div>
+
+        <div class="cap-node action">
+          <div class="cap-emoji" aria-hidden="true">🔧</div>
+          <div><strong>Action</strong><span>调用工具和 API</span></div>
+        </div>
+
+        <div class="cap-node memory">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <ellipse cx="24" cy="12" rx="14" ry="6" />
+            <path d="M10 12v18c0 3 6 6 14 6s14-3 14-6V12" />
+            <path d="M10 21c0 3 6 6 14 6s14-3 14-6" />
+          </svg>
+          <div><strong>Memory</strong><span>保存上下文</span></div>
+        </div>
+      </div>
+
+      <h3>Agent 的四个功能模块</h3>
+      <div class="module-grid">
+        <div class="module-card">
+          <strong>感知 Perception</strong>
+          <p>接收用户输入、工具返回、文件内容和系统状态，把外部信息整理成模型能理解的上下文。</p>
+        </div>
+        <div class="module-card">
+          <strong>推理 Reasoning</strong>
+          <p>分析当前状态，拆解任务，判断下一步应该继续收集信息、调用工具，还是结束回答。</p>
+        </div>
+        <div class="module-card">
+          <strong>行动 Action</strong>
+          <p>调用 API、查询数据库、执行脚本；模型输出结构化指令，程序负责执行并回传结果。</p>
+        </div>
+        <div class="module-card">
+          <strong>记忆 Memory</strong>
+          <p>保存短期上下文、中间结果和长期知识，让 Agent 不必每一步都从零开始。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ PAGE 2: Chapter 1 上下文工程 ════════════════════════════════════════════ -->
+  <section class="page">
+    <div class="page-inner">
+      <div class="chapter-num">Chapter 1</div>
+      <h2>四个能力来自上下文工程</h2>
+
+      <div class="context-visual" aria-label="上下文文稿整体发送给模型">
+        <svg class="context-diagram" viewBox="0 0 820 400" role="img" aria-labelledby="contextDiagramTitle" preserveAspectRatio="xMidYMid meet">
+          <title id="contextDiagramTitle">上下文文稿被 Agent 读取后交给 ChatGPT 模型处理</title>
+          <defs>
+            <filter id="contextDocShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#2563eb" flood-opacity="0.12" />
+            </filter>
+            <filter id="contextIconShadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#2563eb" flood-opacity="0.14" />
+            </filter>
+            <filter id="contextPointerShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="12" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.08" />
+            </filter>
+            <clipPath id="contextDocClip">
+              <rect x="30" y="24" width="430" height="352" rx="14" />
+            </clipPath>
+          </defs>
+
+          <g filter="url(#contextDocShadow)">
+            <g clip-path="url(#contextDocClip)">
+              <rect x="30" y="24" width="430" height="352" fill="#ffffff" />
+              <rect x="30" y="239" width="430" height="27" fill="#fff7d6" />
+              <path d="M30 92H460 M30 174H460 M30 239H460 M30 266H460 M30 328H460" stroke="#e5ecf6" stroke-width="1" />
+
+              <text x="56" y="64" font-size="18" text-anchor="middle">⚙️</text>
+              <text x="82" y="49" class="context-doc-title">你是 Codex，一个软件工程智能体...</text>
+              <path class="context-line" d="M82 64H414 M82 76H362 M82 88H316" />
+
+              <text x="56" y="130" font-size="18" text-anchor="middle">🧰</text>
+              <text x="82" y="112" class="context-doc-body">PDF：渲染并读取 pdf 格式文件；</text>
+              <text x="82" y="130" class="context-doc-body">ImgGen：生成图片；</text>
+              <text x="82" y="148" class="context-doc-body">LarkDocs：操作飞书云文档； ... ...</text>
+              <path class="context-line" d="M82 160H414 M82 172H362" />
+
+              <text x="56" y="215" font-size="18" text-anchor="middle">📝</text>
+              <text x="82" y="205" class="context-doc-title">已完成5月14日北京天气查询，是晴天，温度...</text>
+              <path class="context-line" d="M82 221H414 M82 233H362" />
+
+              <text x="56" y="258" font-size="18" text-anchor="middle">💬</text>
+              <text x="82" y="257" class="context-doc-title" font-size="14">今天北京天气适合跑步吗？</text>
+
+              <text x="56" y="300" font-size="18" text-anchor="middle">🔧</text>
+              <text x="82" y="289" class="context-doc-title">web_search；cmd_exec； ... ...</text>
+              <path class="context-line" d="M82 305H414 M82 317H362" />
+
+              <text x="56" y="359" font-size="18" text-anchor="middle">⋯</text>
+              <text x="82" y="347" class="context-doc-title">... ...</text>
+              <path class="context-line" d="M82 363H160 M82 375H128" />
+            </g>
+            <rect x="30" y="24" width="430" height="352" rx="14" fill="none" stroke="rgba(37, 99, 235, 0.82)" stroke-width="2" />
+          </g>
+
+          <path d="M462 24 C476 24 484 36 484 52 L484 72 C484 82 492 88 502 88 C492 88 484 94 484 104 L484 348 C484 364 476 376 462 376" fill="none" stroke="rgba(37, 99, 235, 0.32)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+
+          <image href="assets/user-pointer.svg" x="388" y="198" width="210" height="166" preserveAspectRatio="xMidYMid meet" filter="url(#contextPointerShadow)" />
+
+          <g filter="url(#contextIconShadow)">
+            <rect x="504" y="58" width="64" height="64" rx="16" fill="#eff6ff" stroke="#bcd2ff" />
+            <image href="assets/codex-icon.png?v=1" x="518" y="72" width="36" height="36" preserveAspectRatio="xMidYMid meet" />
+          </g>
+          <text x="536" y="138" class="context-agent-label" text-anchor="middle">agent</text>
+
+          <path d="M594 90H676" fill="none" stroke="#2563eb" stroke-width="4.5" stroke-linecap="round" />
+          <path d="M662 78L678 90L662 102" fill="none" stroke="#2563eb" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+
+          <image href="assets/chatgpt-icon.svg?v=3" x="724" y="58" width="64" height="64" preserveAspectRatio="xMidYMid meet" filter="url(#contextPointerShadow)" />
+          <text x="756" y="138" class="context-agent-label" text-anchor="middle">LLM</text>
+        </svg>
+      </div>
+
+      <div class="context-note">
+        <p>四个能力先落在上下文里。后端把系统规则、技能说明、历史记忆、可用工具和用户输入打包成同一份文稿，再交给模型判断下一步；用户输入只是其中很小的一段。</p>
+        <p>机制本身并不神秘。Agent 没有改写模型内部运行方式，而是在模型外部组织上下文、调用工具、接回结果，再把下一轮上下文继续补齐。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ PAGE 3: ReAct 的历史 ════════════════════════════════════════════ -->
+  <section class="page">
+    <div class="page-inner">
+      <div class="chapter-num">Chapter 2 / 初识 ReAct</div>
+      <h2>ReAct：现代 Agent 的起点</h2>
+      <p class="subtitle">2022 年的一篇论文，定义了 Agent 的基础范式</p>
+
+      <div class="paper-card">
+        <div class="paper-badge">ICLR 2023</div>
+        <div class="paper-title">ReAct: Synergizing Reasoning and Acting in Language Models</div>
+        <div class="paper-authors">Shunyu Yao (姚顺雨) · Jeffrey Zhao · Dian Yu · Nan Du · Izhak Shafran · Karthik Narasimhan · Yuan Cao</div>
+        <div class="paper-affil">Princeton University · Google Research (Brain Team)</div>
+        <div class="paper-meta">arXiv: 2210.03629 · 2022.10.06</div>
+      </div>
+
+      <h3>论文解决了什么问题</h3>
+      <p>在 ReAct 之前，语言模型的<strong>推理</strong>和<strong>行动</strong>是两条独立研究线：</p>
+      <div class="compare" style="margin: 14px 0;">
+        <div class="compare-card" style="border-left: 3px solid var(--purple);">
+          <h3>Chain-of-Thought</h3>
+          <p>让模型把推理过程写出来，"多想几步"。但模型的推理没有外部信息反馈，容易跑偏、产生幻觉。</p>
+        </div>
+        <div class="compare-card" style="border-left: 3px solid var(--orange);">
+          <h3>Tool Use</h3>
+          <p>让模型调用外部工具，"动手去查"。但缺乏推理过程，模型不知道何时该查、查完怎么分析。</p>
+        </div>
+      </div>
+      <p>ReAct 第一次把二者拧成了一个<strong>交替循环</strong>——先想一步、再调一个工具、看到结果再想下一步。这个循环骨架就是今天几乎所有 Agent 的基础。</p>
+
+      <div class="callout">
+        <strong>历史地位</strong>：后来所有的主流 Agent 框架（AutoGPT、LangChain Agent、OpenAI Function Calling、Claude Tool Use）本质上都是 ReAct 循环的工程化实现。第一作者姚顺雨后来成为 AI Agent 领域的标志性人物，于 2025 年底加入腾讯担任首席 AI 科学家。
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ PAGE 4: ReAct 模式 ════════════════════════════════════════════ -->
+  <section class="page">
+    <div class="page-inner">
+      <div class="chapter-num">Chapter 2</div>
+      <h2>ReAct 模式</h2>
+
+      <p>ReAct = <strong>Rea</strong>soning + <strong>Act</strong>ing，是构建 Agent 最经典也最直观的基础模式。它的核心是一个循环：</p>
+
+      <div class="diagram react-loop">
+        <div class="react-stage">
+          <div class="diagram-box think">🧠 Thought<br><small>推理下一步</small></div>
+          <span class="diagram-arrow">→</span>
+          <div class="diagram-box act">🔧 Action<br><small>执行工具调用</small></div>
+          <span class="diagram-arrow">→</span>
+          <div class="diagram-box obs">👁 Observation<br><small>观察执行结果</small></div>
+          <span class="diagram-arrow">→</span>
+          <div class="diagram-box think">✅ 结束<br><small>输出最终答案</small></div>
+          <div class="loop-back" aria-hidden="true"></div>
+        </div>
+        <p style="text-align:center; margin-top:14px; color:var(--text-dim); font-size:0.9rem">循环直到得出最终答案，或达到最大步数限制</p>
+      </div>
+
+      <h3>为什么需要这个循环</h3>
+      <p>单次 LLM 调用能做的事很有限：它只能基于训练数据生成文本，没有实时信息，不会算复杂数学，不能操作外部系统。ReAct 循环把<strong>一个大任务拆成多步</strong>，每一步模型只做一次推理、调一个工具，用工具的返回值弥补自身能力的缺口。</p>
+
+      <h3>具体例子</h3>
+      <div class="code-block"><span class="cm">用户：今天北京天气怎么样？适合跑步吗？</span>
+
+<span class="kw">Thought</span>: 需要查北京天气和 AQI，先查天气
+<span class="kw">Action</span>: 调用 <span class="fn">get_weather</span>(city=<span class="str">"北京"</span>)
+<span class="kw">Observation</span>: 晴，18°C，湿度 45%，风力 3 级
+
+<span class="kw">Thought</span>: 天气不错，再查空气质量
+<span class="kw">Action</span>: 调用 <span class="fn">get_aqi</span>(city=<span class="str">"北京"</span>)
+<span class="kw">Observation</span>: AQI 52，PM2.5=22，级别：良
+
+<span class="kw">Thought</span>: 得到了足够信息，可以回答了
+<span class="kw">Final</span>: 北京今天晴天 18°C，AQI 52（良），非常适合户外跑步。</div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ PAGE 5: 动手实现 ════════════════════════════════════════════ -->
+  <section class="page">
+    <div class="page-inner">
+      <div class="chapter-num">Chapter 4</div>
+      <h2>动手实现</h2>
+
+      <p>整个 Agent 的<strong>核心循环</strong>不超过 30 行代码。骨架长这样：</p>
+
+      <div class="code-block"><span class="kw">async function</span> <span class="fn">runAgent</span>(userMessage: string) {
+  <span class="kw">const</span> messages = [systemPrompt, { role: <span class="str">"user"</span>, content: userMessage }];
+
+  <span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; MAX_STEPS; i++) {
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="fn">llm.chat</span>(messages, tools);
+
+    <span class="kw">if</span> (response.finishReason === <span class="str">"stop"</span>) {
+      <span class="kw">return</span> response.content;  <span class="cm">// 模型认为可以结束了</span>
+    }
+
+    <span class="kw">if</span> (response.finishReason === <span class="str">"tool_calls"</span>) {
+      <span class="kw">for</span> (<span class="kw">const</span> call <span class="kw">of</span> response.toolCalls) {
+        <span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">executeTool</span>(call.name, call.args);
+        messages.push({ role: <span class="str">"tool"</span>, tool_call_id: call.id, content: result });
+      }
+      <span class="cm">// 把执行结果追加到上下文，继续下一轮循环</span>
+    }
+  }
+  <span class="kw">return</span> <span class="str">"达到最大步数限制，任务未完成。"</span>;
+}</div>
+
+      <h3>三个实现要点</h3>
+      <ul>
+        <li><strong>工具描述决定调用质量</strong> — 模型选哪个工具、传什么参数，唯一依据就是 Tool Schema 里的文字描述。描述写查询天气和写输入城市名返回温度湿度风力，模型的调用准确度完全不同。参数尽量带约束，enum 和 required 是最低成本的防错手段。</li>
+        <li><strong>用 Prompt 教模型先想再做</strong> — ReAct 论文的关键发现是模型不需要微调，只要在 System Prompt 里放一两个完整的推理后调用工具再观察结果的示例，模型就会模仿这个交替模式。你的 Prompt 里有没有这个范例，决定了模型会不会先分析再行动。</li>
+        <li><strong>错误不要中断循环</strong> — 工具超时、参数非法、返回解析失败，把这些错误信息原样写回 messages 数组，让模型在下一轮推理中看到失败原因，自己判断是换参数重试还是换一个工具。在 ReAct 循环里错误不是异常，是 Observation 的一部分。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ PAGE 6: 真实交互 Demo ════════════════════════════════════════════ -->
+  <section class="page demo-page">
+    <div class="page-inner">
+      <div class="demo-header">
+        <div>
+          <div class="chapter-num">Chapter 5</div>
+          <h2>真实交互 Demo</h2>
+        </div>
+        <div class="demo-live-url" id="demoLiveUrl">http://127.0.0.1:5173/?deck=1</div>
+      </div>
+
+      <div class="demo-frame-shell">
+        <iframe
+          id="liveDemoFrame"
+          class="live-demo-frame"
+          title="htb-agent live interactive demo"
+          src="about:blank"
+          allow="clipboard-read; clipboard-write"
+          referrerpolicy="no-referrer"
+        ></iframe>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ── Navigation ── -->
+<div class="nav-hint" id="navHint">← → 键翻页 &nbsp;|&nbsp; 点击圆点跳转</div>
+<div class="nav-bar" id="navBar"></div>
+
+<script>
+	  const deck = document.getElementById('deck');
+	  const navBar = document.getElementById('navBar');
+	  const liveDemoFrame = document.getElementById('liveDemoFrame');
+	  const demoLiveUrl = document.getElementById('demoLiveUrl');
+	  const pages = document.querySelectorAll('.page');
+	  let current = 0;
+
+	  const liveDemoUrl = location.port === '5173'
+	    ? `${location.origin}/?deck=1`
+	    : 'http://127.0.0.1:5173/?deck=1';
+
+	  liveDemoFrame.src = liveDemoUrl;
+	  demoLiveUrl.textContent = liveDemoUrl;
+
+  // Build nav dots
+  pages.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.textContent = String(i + 1);
+    dot.setAttribute('aria-label', `跳转到第 ${i + 1} 页`);
+    dot.addEventListener('click', () => goTo(i));
+    navBar.appendChild(dot);
+  });
+
+	  const dots = document.querySelectorAll('.nav-dot');
+	  pages[current].classList.add('active');
+
+	  function goTo(index) {
+	    if (index < 0 || index >= pages.length) return;
+	    pages[current].classList.remove('active');
+	    current = index;
+	    pages[current].classList.add('active');
+	    dots.forEach((d, i) => d.classList.toggle('active', i === current));
+	    document.getElementById('navHint').style.opacity = current === 0 ? '1' : '0.7';
+	  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      goTo(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    }
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', (e) => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) goTo(current + (diff > 0 ? 1 : -1));
+  });
+</script>
+</body>
+</html>
